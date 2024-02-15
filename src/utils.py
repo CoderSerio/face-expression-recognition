@@ -4,16 +4,13 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 import tensorflow as tf
 from tensorflow.keras import layers
+import matplotlib.pyplot as plt
+from tensorflow.keras.optimizers import Adam
 
-number_2_expression = {
-    'angry': 0,
-    'disgust': 1,
-    'fear': 2,
-    'happy': 3,
-    'neutral': 4,
-    'sad': 5,
-    'surprise': 6,
-}
+expression_2_number = ['angry', 'disgust',
+                       'fear', 'happy', 'neutral', 'sad', 'surprise']
+number_2_expression = {expression: index for index,
+                       expression in enumerate(expression_2_number)}
 
 
 def load_data(folder_path):
@@ -39,15 +36,55 @@ def load_data(folder_path):
 
 def train(images, labels, save_path):
     model = tf.keras.Sequential()
+    model.add(layers.Dense(256, activation='relu'))
     model.add(layers.Dense(128, activation='relu'))
     model.add(layers.Dense(64, activation='relu'))
     model.add(layers.Dense(7, activation='softmax'))
 
-    model.compile(optimizer='adam',
+    optimizer = Adam(learning_rate=0.00005)
+    model.compile(optimizer=optimizer,
                   loss=tf.keras.losses.SparseCategoricalCrossentropy(
                       from_logits=True),
                   metrics=['accuracy'])
 
-    model.fit(images, labels, epochs=10)
+    model.fit(images, labels, epochs=30)
     model.save(save_path)
     return model
+
+
+def predict(model, nd_array_images, labels):
+    prediction = model.predict(nd_array_images)
+    # 将预测向量转换为标签，predictions是one-hot编码，需要argmax获取最大概率对应的类别
+    predicted_classes = np.argmax(prediction, axis=1)
+    print('Predictions:', prediction, predicted_classes)
+    accuracy = np.sum(predicted_classes == labels) / \
+        len(nd_array_images)
+    print(f"Accuracy: {accuracy * 100:.2f}%")
+
+    return predicted_classes
+
+
+def draw_image_prediction(nd_array_images, predictions, num=10):
+    print(nd_array_images.shape, predictions.shape)
+    # 随机选择指定数量的图片及其预测结果
+    random_indices = np.random.choice(
+        range(len(nd_array_images)), size=num, replace=False)
+    sample_images = nd_array_images[random_indices]
+    sample_predictions = predictions[random_indices]
+
+    # 创建一个figure对象用于多子图展示
+    __fig, axs = plt.subplots(nrows=num, ncols=1,
+                              figsize=(10, num * 2))
+
+    for i, (image, pred) in enumerate(zip(sample_images, sample_predictions)):
+        ax = axs[i]  # 获取当前的Axes对象
+        if image.shape[-1] == 1:
+            ax.imshow((image * 255).astype(np.uint8), cmap='gray')
+        else:
+            ax.imshow(image.astype(np.uint8))
+
+        ax.set_title(f"Image {i + 1}: Predicted Class - {pred}")
+        ax.axis('off')
+
+    plt.tight_layout()
+    plt.show()
